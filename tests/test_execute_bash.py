@@ -26,10 +26,12 @@ def expected(sandbox):
     sb = sandbox / "volatile" / "bash_test"
     sb.mkdir(parents=True)
     file_name = sb / "sample.txt"
-    file_name.write_text("test data\n")
+    file_content = "test data\n"
+    file_name.write_text(file_content)
     os.environ["TEST_GREETING"] = "hello_from_env"
     return {"root": sb,
-            "file_name": str(file_name)}
+            "file_name": str(file_name),
+            "file_content": file_content}
 
 
 def result_data(result):
@@ -66,13 +68,14 @@ def describe_execute_bash():
         async def it_captures_stdout_and_stderr_with_nonzero_exit(mcp, expected):
             h = make_capture_handler()
             async with Client(transport=mcp, elicitation_handler=h) as client:
-                result = await client.call_tool("execute_bash", {"command": f"ls {expected["file_name"]} /nonexistent"})
+                command = f'cat {expected["file_name"]}; echo "error: not found" >&2; exit 2'
+                result = await client.call_tool("execute_bash", {"command": command})
                 assert_that(result.is_error).is_false()
-                assert_that(h.messages[0]).is_equal_to(f"I will run the following command: ls {expected["file_name"]} /nonexistent (using tool: shell)")
+                assert_that(h.messages[0]).is_equal_to(f"I will run the following command: {command} (using tool: shell)")
                 assert_that(result_data(result)).is_equal_to({
                     "exit_status": "2",
-                    "stdout": f"{expected["file_name"]}\n",
-                    "stderr": "ls: cannot access '/nonexistent': No such file or directory\n",
+                    "stdout": expected["file_content"],
+                    "stderr": "error: not found\n",
                 })
 
     def describe_exit_status():
@@ -94,13 +97,14 @@ def describe_execute_bash():
         async def it_returns_stderr_on_failed_command(mcp, expected):
             h = make_capture_handler()
             async with Client(transport=mcp, elicitation_handler=h) as client:
-                result = await client.call_tool("execute_bash", {"command": f"ls {expected["root"]}/nonexistent"})
+                command = 'echo "error: not found" >&2; exit 2'
+                result = await client.call_tool("execute_bash", {"command": command})
                 assert_that(result.is_error).is_false()
-                assert_that(h.messages[0]).is_equal_to(f"I will run the following command: ls {expected["root"]}/nonexistent (using tool: shell)")
+                assert_that(h.messages[0]).is_equal_to(f"I will run the following command: {command} (using tool: shell)")
                 assert_that(result_data(result)).is_equal_to({
                     "exit_status": "2",
                     "stdout": "",
-                    "stderr": f"ls: cannot access '{expected["root"]}/nonexistent': No such file or directory\n",
+                    "stderr": "error: not found\n",
                 })
 
     def describe_working_dir():
