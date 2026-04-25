@@ -57,7 +57,7 @@ def register(mcp):
         if summary:
             msg += f"\nPurpose: {summary}"
 
-        result = await ctx.elicit(message=msg, response_type=str)
+        result = await ctx.elicit(message=msg, response_type=None)
         if result.action != "accept":
             raise ToolError("Tool use was cancelled by the user")
 

@@ -25,7 +25,7 @@ def make_capture_handler():
     messages = []
     async def handler(message, response_type, params, context):
         messages.append(message)
-        return ElicitResult(action="accept", content={"value": "y"})
+        return ElicitResult(action="accept", content=None)
     handler.messages = messages
     return handler
 
