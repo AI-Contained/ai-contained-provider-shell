@@ -1,13 +1,14 @@
 """execute_bash tool — run shell commands."""
+
 import json
 import os
 import subprocess
 
-from fastmcp import Context
+from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
 
     @mcp.tool(name="execute_bash")
     async def execute_bash(

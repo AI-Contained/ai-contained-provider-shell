@@ -31,7 +31,8 @@ markers = [
 shell = "ai_contained.provider.shell:register"
 
 [tool.mypy]
-python_version = "3.12"
+mypy_path = "src"
+explicit_package_bases = true
 strict = true
 
 [tool.hatch.build.targets.wheel]
