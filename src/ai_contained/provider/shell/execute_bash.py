@@ -63,11 +63,16 @@ def register(mcp: FastMCP) -> None:
             raise ToolError("Tool use was cancelled by the user")
 
         proc = subprocess.run(
-            command, shell=True, capture_output=True, text=True,
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
             cwd=working_dir or None,
         )
-        return json.dumps({
-            "exit_status": str(proc.returncode),
-            "stderr": proc.stderr,
-            "stdout": proc.stdout,
-        })
+        return json.dumps(
+            {
+                "exit_status": str(proc.returncode),
+                "stderr": proc.stderr,
+                "stdout": proc.stdout,
+            }
+        )
