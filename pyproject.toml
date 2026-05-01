@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ai-contained-provider-template"  # TODO: rename to ai-contained-provider-<yourprovider>
-version = "0.0.2"
-description = "Hello World adventure game provider for AI-Contained"  # TODO: update
+name = "ai-contained-provider-shell"
+version = "0.1.0"
+description = "Give your AI-Contained Agent controlled access to your command shell."
 requires-python = ">=3.12"
 dependencies = [
     "ai-contained-core-mcp",
@@ -17,6 +17,7 @@ dev = [
     "pytest-asyncio>=1.0",
     "pytest-describe>=3.1",
     "assertpy>=1.1",
+    "mypy>=1.20.2",
 ]
 
 [tool.pytest.ini_options]
@@ -27,7 +28,11 @@ markers = [
 ]
 
 [project.entry-points."ai_contained.provider"]
-template = "ai_contained.provider.template:register"  # TODO: rename to <yourprovider> = "ai_contained.provider.<yourprovider>:register"
+shell = "ai_contained.provider.shell:register"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ai_contained"]
