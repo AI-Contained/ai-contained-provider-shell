@@ -1,13 +1,15 @@
 import os
-from collections.abc import Callable, Coroutine, Generator
+from collections.abc import AsyncGenerator, Callable, Coroutine, Generator
 from pathlib import Path
 from typing import Any
 
 import pytest
 from assertpy import assert_that
+from fastmcp import FastMCP
 from fastmcp.client import Client
 
 from ai_contained.core.mcp.testing import Elicitor, WrapCallToolResult
+from ai_contained.provider.shell import register
 
 
 def assert_bash_prompt(command: str, working_dir: str | None = None, summary: str | None = None) -> str:
@@ -22,6 +24,20 @@ def assert_bash_prompt(command: str, working_dir: str | None = None, summary: st
 
 
 def describe_execute_bash():
+
+    @pytest.fixture
+    def elicitor() -> Generator[Elicitor, None, None]:
+        e = Elicitor()
+        yield e
+        assert not e._queue, f"{len(e._queue)} elicitation step(s) were never triggered"
+
+    @pytest.fixture
+    async def client(elicitor: Elicitor) -> AsyncGenerator[Client, None]:
+        server = FastMCP("test")
+        register(server)
+        async with Client(transport=server, elicitation_handler=elicitor) as c:
+            yield c
+
 
     @pytest.fixture
     def execute_bash(client: Client, elicitor: Elicitor) -> Callable[..., Coroutine[Any, Any, Any]]:
