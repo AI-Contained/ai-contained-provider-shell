@@ -7,7 +7,7 @@ import pytest
 from assertpy import assert_that
 from fastmcp.client import Client
 
-from conftest import Elicitor, WrapCallToolResult
+from ai_contained.core.mcp.testing import Elicitor, WrapCallToolResult
 
 
 def assert_bash_prompt(command: str, working_dir: str | None = None, summary: str | None = None) -> str:

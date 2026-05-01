@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Give your AI-Contained Agent controlled access to your command shell."
 requires-python = ">=3.12"
 dependencies = [
-    "ai-contained-core-mcp",
+    "ai-contained-core-mcp>=0.1.0",
 ]
 
 [project.optional-dependencies]
