@@ -27,13 +27,13 @@ jobs:
         with:
           enable-cache: true
       - name: Format check
-        run: uv run ruff format --check .
+        run: uv run --extra dev ruff format --check .
       - name: Lint
-        run: uv run ruff check .
+        run: uv run --extra dev ruff check .
       - name: Type check
-        run: uv run mypy src
+        run: uv run --extra dev mypy src
       - name: Test
-        run: uv run pytest
+        run: uv run --extra dev pytest
 
   build:
     name: Docker Build
