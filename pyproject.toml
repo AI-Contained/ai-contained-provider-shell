@@ -18,6 +18,7 @@ dev = [
     "pytest-describe>=3.1",
     "assertpy>=1.1",
     "mypy>=1.20.2",
+    "ruff>=0.15.12",
 ]
 
 [tool.pytest.ini_options]
@@ -29,6 +30,19 @@ markers = [
 
 [project.entry-points."ai_contained.provider"]
 shell = "ai_contained.provider.shell:register"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "D"]
+ignore = ["D203", "D213"]  # conflict with D211/D212
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]  # no docstrings required in tests
+
+[tool.ruff.format]
+quote-style = "double"
 
 [tool.mypy]
 mypy_path = "src"

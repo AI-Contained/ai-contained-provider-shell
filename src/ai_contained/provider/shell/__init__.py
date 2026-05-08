@@ -6,4 +6,5 @@ from ai_contained.provider.shell.execute_bash import register as _register_execu
 
 
 def register(mcp: FastMCP) -> None:
+    """Register all shell provider tools with the MCP server."""
     _register_execute_bash(mcp)

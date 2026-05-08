@@ -9,9 +9,10 @@ from fastmcp.exceptions import ToolError
 
 
 def register(mcp: FastMCP) -> None:
+    """Register the execute_bash tool with the MCP server."""
 
     @mcp.tool(name="execute_bash")
-    async def execute_bash(
+    async def execute_bash(  # noqa: D417
         command: str,
         ctx: Context,
         working_dir: str | None = None,
@@ -19,7 +20,8 @@ def register(mcp: FastMCP) -> None:
     ) -> str:
         """Execute a bash command and return stdout, stderr, and exit status.
 
-        Parameters:
+        Parameters
+        ----------
           command      Bash command to execute (required). Supports shell features:
                        pipes, redirects, &&, ;, subshells, etc.
           working_dir  Directory to run the command in (optional, default: cwd).
@@ -39,7 +41,8 @@ def register(mcp: FastMCP) -> None:
           - working_dir is shown relative to cwd in the elicitation, e.g.
             /code/volatile → "volatile", /tmp → "../tmp"
 
-        Examples:
+        Examples
+        --------
           # Simple command
           {"command": "echo hello"}
 
@@ -48,6 +51,7 @@ def register(mcp: FastMCP) -> None:
 
           # Capture both stdout and stderr
           {"command": "ls valid_file /nonexistent"}
+
         """
         if working_dir:
             rel = os.path.relpath(working_dir, os.getcwd())
