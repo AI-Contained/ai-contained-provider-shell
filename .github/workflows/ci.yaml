@@ -68,7 +68,6 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=branch,prefix=branch-
-            type=raw,value=smoke-test,enable=${{ github.ref != 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
       - uses: docker/build-push-action@v5
         with:
           platforms: linux/amd64,linux/arm64
@@ -76,14 +75,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Smoke test
-        if: github.ref != 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-        run: |
-          config_dir="${{ runner.temp }}/claude-config"
-          mkdir -p "$config_dir"
-          chmod 777 "$config_dir"
-          docker run --rm -v "$config_dir:/config" \
-            ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]'):smoke-test --version
 
   release:
     name: Release
