@@ -28,7 +28,7 @@ jobs:
           python-version: '3.12'
           enable-cache: true
       - name: Install dev dependencies
-        run: uv pip install --system --break-system-packages -e ".[dev]"
+        run: sudo uv pip install --system --break-system-packages -e ".[dev]"
       - name: Format check
         run: ruff format --check .
       - name: Lint
