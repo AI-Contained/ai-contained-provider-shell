@@ -11,11 +11,13 @@
       in {
         packages.default = pkgs.buildEnv {
           name = "ai-contained-provider-shell";
-          paths = [ pkgs.gitMinimal ];
+          paths = [ ];
+#          paths = [ pkgs.gitMinimal ];
         };
 
         devShells.default = pkgs.mkShell {
-          packages = [ pkgs.gitMinimal pkgs.python312 ];
+          packages = [ ];
+#          packages = [ pkgs.gitMinimal pkgs.python312 ];
         };
       }
     );

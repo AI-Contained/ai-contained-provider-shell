@@ -1,5 +1,5 @@
 ##
-## Stage 1: Nix builder — install git and extract the runtime closure
+## Stage 1: Nix builder — system binary closure (git)
 ##
 FROM nixos/nix:latest AS nix-builder
 
@@ -11,24 +11,14 @@ COPY flake.nix ./
 COPY flake.loc[k] ./
 RUN nix build
 
-RUN mkdir /nix-closure && \
-    cp -va $(nix-store -qR result/) /nix-closure/
+RUN mkdir -p /export/nix/store && \
+    cp -va $(nix-store -qR result/) /export/nix/store/
 
 ##
-## Stage 2: Wheel builder — build the Python provider package
-##
-FROM python:3.12-alpine AS wheel-builder
-
-WORKDIR /build
-COPY pyproject.toml ./
-COPY src/ ./src/
-RUN pip install --no-cache-dir build && \
-    python -m build --wheel --outdir /wheels/
-
-##
-## Final stage: provider image
+## Final: FROM scratch — nix closure + Python source
 ##
 FROM scratch
 
-COPY --link --from=nix-builder /nix-closure/ /nix/store/
-COPY --link --from=wheel-builder /wheels/ /opt/ai-contained-provider-shell/wheel/
+COPY --link --from=nix-builder /export/ /
+COPY src/ /opt/ai-contained-provider-shell/src/
+COPY pyproject.toml /opt/ai-contained-provider-shell/pyproject.toml

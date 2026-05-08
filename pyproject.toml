@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Give your AI-Contained Agent controlled access to your command shell."
 requires-python = ">=3.12"
 dependencies = [
-    "ai-contained-core-mcp>=0.1.0",
+    "ai-contained-core-mcp @ https://github.com/AI-Contained/core-mcp/archive/refs/tags/v0.1.0.zip",
 ]
 
 [project.optional-dependencies]
@@ -34,6 +34,9 @@ shell = "ai_contained.provider.shell:register"
 mypy_path = "src"
 explicit_package_bases = true
 strict = true
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ai_contained"]
