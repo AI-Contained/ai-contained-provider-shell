@@ -1,0 +1,31 @@
+name: Cleanup
+
+on:
+  delete:
+
+jobs:
+  cleanup:
+    name: Delete Branch Image
+    if: github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Delete GHCR branch tag
+        run: |
+          BRANCH="${{ github.event.ref }}"
+          TAG="branch-$(echo "$BRANCH" | sed 's|[^a-zA-Z0-9._-]|-|g')"
+          PACKAGE="${{ github.event.repository.name }}"
+          OWNER="${{ github.repository_owner }}"
+
+          VERSION_ID=$(gh api "/orgs/${OWNER}/packages/container/${PACKAGE}/versions" \
+            --paginate | jq -r ".[] | select((.metadata.container.tags // []) | index(\"${TAG}\") != null) | .id")
+
+          if [ -n "$VERSION_ID" ]; then
+            gh api --method DELETE "/orgs/${OWNER}/packages/container/${PACKAGE}/versions/${VERSION_ID}"
+            echo "Deleted tag: $TAG"
+          else
+            echo "No image found for tag: $TAG"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
