@@ -1,12 +1,20 @@
 package main
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// chmod sets mode on path and schedules a restore to 0755 after the current
+// Ginkgo node so that GinkgoT().TempDir() can remove the tree.
+func chmod(path string, mode fs.FileMode) {
+	Expect(os.Chmod(path, mode)).To(Succeed())
+	DeferCleanup(os.Chmod, path, fs.FileMode(0755))
+}
 
 var _ = Describe("checkWriteAccess", func() {
 	var (
@@ -17,14 +25,13 @@ var _ = Describe("checkWriteAccess", func() {
 
 	BeforeEach(func() {
 		root = GinkgoT().TempDir()
-		// use nobody — world-writable bits will be caught regardless of ownership
 		uid = 65534
 		gid = 65534
 	})
 
 	Context("when no entries are writable", func() {
 		It("returns empty for a read-only root", func() {
-			Expect(os.Chmod(root, 0555)).To(Succeed())
+			chmod(root, 0555)
 			violations, err := checkWriteAccess(root, uid, gid)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(violations).To(BeEmpty())
@@ -33,8 +40,8 @@ var _ = Describe("checkWriteAccess", func() {
 		It("returns empty for a read-only nested structure", func() {
 			sub := filepath.Join(root, "sub")
 			Expect(os.Mkdir(sub, 0755)).To(Succeed())
-			Expect(os.Chmod(sub, 0555)).To(Succeed())
-			Expect(os.Chmod(root, 0555)).To(Succeed())
+			chmod(sub, 0555)
+			chmod(root, 0555)
 			violations, err := checkWriteAccess(root, uid, gid)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(violations).To(BeEmpty())
@@ -45,11 +52,10 @@ var _ = Describe("checkWriteAccess", func() {
 		It("reports root/* and does not recurse", func() {
 			sub := filepath.Join(root, "sub")
 			Expect(os.Mkdir(sub, 0777)).To(Succeed())
-			Expect(os.Chmod(root, 0777)).To(Succeed())
+			chmod(root, 0777)
 
 			violations, err := checkWriteAccess(root, uid, gid)
 			Expect(err).NotTo(HaveOccurred())
-			// root is the first violation — sub must not appear
 			Expect(violations).To(ConsistOf(root + "/*"))
 		})
 	})
@@ -59,8 +65,8 @@ var _ = Describe("checkWriteAccess", func() {
 			sub := filepath.Join(root, "data")
 			nested := filepath.Join(sub, "nested")
 			Expect(os.MkdirAll(nested, 0755)).To(Succeed())
-			Expect(os.Chmod(sub, 0777)).To(Succeed())
-			Expect(os.Chmod(root, 0555)).To(Succeed())
+			chmod(sub, 0777)
+			chmod(root, 0555)
 
 			violations, err := checkWriteAccess(root, uid, gid)
 			Expect(err).NotTo(HaveOccurred())
@@ -72,8 +78,8 @@ var _ = Describe("checkWriteAccess", func() {
 		It("reports the file path", func() {
 			f := filepath.Join(root, "config.txt")
 			Expect(os.WriteFile(f, []byte("x"), 0644)).To(Succeed())
-			Expect(os.Chmod(f, 0666)).To(Succeed())
-			Expect(os.Chmod(root, 0555)).To(Succeed())
+			chmod(f, 0666)
+			chmod(root, 0555)
 
 			violations, err := checkWriteAccess(root, uid, gid)
 			Expect(err).NotTo(HaveOccurred())
@@ -86,17 +92,19 @@ var _ = Describe("checkWriteAccess", func() {
 			b1 := filepath.Join(root, "b1")
 			Expect(os.Mkdir(b1, 0755)).To(Succeed())
 			Expect(os.WriteFile(filepath.Join(b1, "c.txt"), []byte("x"), 0644)).To(Succeed())
-			Expect(os.Chmod(b1, 0777)).To(Succeed())
+			chmod(b1, 0777)
 
+			// create file before locking down b2
 			b2 := filepath.Join(root, "b2")
-			Expect(os.Mkdir(b2, 0555)).To(Succeed())
+			Expect(os.Mkdir(b2, 0755)).To(Succeed())
 			Expect(os.WriteFile(filepath.Join(b2, "c.txt"), []byte("x"), 0444)).To(Succeed())
+			chmod(b2, 0555)
 
 			b3 := filepath.Join(root, "b3.txt")
 			Expect(os.WriteFile(b3, []byte("x"), 0644)).To(Succeed())
-			Expect(os.Chmod(b3, 0666)).To(Succeed())
+			chmod(b3, 0666)
 
-			Expect(os.Chmod(root, 0555)).To(Succeed())
+			chmod(root, 0555)
 
 			violations, err := checkWriteAccess(root, uid, gid)
 			Expect(err).NotTo(HaveOccurred())
@@ -113,7 +121,7 @@ var _ = Describe("checkWriteAccess", func() {
 		It("reports a directory writable by its owner", func() {
 			sub := filepath.Join(root, "owned")
 			Expect(os.Mkdir(sub, 0700)).To(Succeed())
-			Expect(os.Chmod(root, 0555)).To(Succeed())
+			chmod(root, 0555)
 
 			violations, err := checkWriteAccess(root, uid, gid)
 			Expect(err).NotTo(HaveOccurred())
@@ -123,7 +131,7 @@ var _ = Describe("checkWriteAccess", func() {
 		It("reports a file writable by its owner", func() {
 			f := filepath.Join(root, "owned.txt")
 			Expect(os.WriteFile(f, []byte("x"), 0600)).To(Succeed())
-			Expect(os.Chmod(root, 0555)).To(Succeed())
+			chmod(root, 0555)
 
 			violations, err := checkWriteAccess(root, uid, gid)
 			Expect(err).NotTo(HaveOccurred())
@@ -140,8 +148,8 @@ var _ = Describe("checkWriteAccess", func() {
 		It("reports a directory writable by group", func() {
 			sub := filepath.Join(root, "grp")
 			Expect(os.Mkdir(sub, 0755)).To(Succeed())
-			Expect(os.Chmod(sub, 0770)).To(Succeed())
-			Expect(os.Chmod(root, 0555)).To(Succeed())
+			chmod(sub, 0770)
+			chmod(root, 0555)
 
 			violations, err := checkWriteAccess(root, uid, gid)
 			Expect(err).NotTo(HaveOccurred())
