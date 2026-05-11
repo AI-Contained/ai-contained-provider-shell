@@ -31,7 +31,17 @@ func main() {
 
 	fs := flag.NewFlagSet(arg0, flag.ExitOnError)
 	chdir := fs.String("chdir", "", "change to `path` before running --check or exec")
-	check := fs.Bool("check", false, "report writable paths under the working directory")
+	check := fs.Bool("check", false, "check for writable paths; if a command is given, exec it only if no violations found")
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [flags] [-- command [args...]]\n\n", arg0)
+		fmt.Fprintf(os.Stderr, "Flags:\n")
+		fs.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nExamples:\n")
+		fmt.Fprintf(os.Stderr, "  %s --check\n", arg0)
+		fmt.Fprintf(os.Stderr, "  %s --chdir /app --check\n", arg0)
+		fmt.Fprintf(os.Stderr, "  %s --chdir /app --check -- /bin/sh -c 'echo hello'\n", arg0)
+		fmt.Fprintf(os.Stderr, "  %s -- /usr/bin/ls -l\n", arg0)
+	}
 	fs.Parse(os.Args[1:]) //nolint:errcheck // ExitOnError handles this
 	args := fs.Args()
 
@@ -62,7 +72,10 @@ func main() {
 		if len(violations) > 0 {
 			os.Exit(exitViolations)
 		}
-		return
+		if len(args) == 0 {
+			return
+		}
+		// violations clean — fall through to exec
 	}
 
 	if len(args) == 0 {
