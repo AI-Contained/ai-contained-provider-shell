@@ -66,10 +66,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%s: check: %v\n", arg0, err)
 			os.Exit(exitError)
 		}
-		for _, v := range violations {
-			fmt.Println(v)
-		}
 		if len(violations) > 0 {
+			fmt.Fprintf(os.Stderr, "%s: security check failed: %d writable path(s) detected:\n", arg0, len(violations))
+			for _, v := range violations {
+				fmt.Fprintf(os.Stderr, "  %s\n", v)
+			}
 			os.Exit(exitViolations)
 		}
 		if len(args) == 0 {
