@@ -35,6 +35,14 @@ func main() {
 	fs.Parse(os.Args[1:]) //nolint:errcheck // ExitOnError handles this
 	args := fs.Args()
 
+	for _, a := range args {
+		if a == "--" {
+			fmt.Fprintf(os.Stderr, "%s: unexpected arguments before '--'\n", arg0)
+			fs.Usage()
+			os.Exit(exitUsage)
+		}
+	}
+
 	if *chdir != "" {
 		if err := os.Chdir(*chdir); err != nil {
 			fmt.Fprintf(os.Stderr, "%s: chdir: %v\n", arg0, err)
