@@ -64,6 +64,17 @@ func main() {
 		os.Exit(exitSecurity)
 	}
 
+	// Drop privileges immediately — lock all three (real, effective, saved) to nobody.
+	// This ensures both the --check walk and the final exec run under the same identity.
+	if err := syscall.Setresgid(egid, egid, egid); err != nil {
+		fmt.Fprintf(os.Stderr, "%s: setresgid: %v\n", arg0, err)
+		os.Exit(exitError)
+	}
+	if err := syscall.Setresuid(euid, euid, euid); err != nil {
+		fmt.Fprintf(os.Stderr, "%s: setresuid: %v\n", arg0, err)
+		os.Exit(exitError)
+	}
+
 	check := &checkFlag{}
 	fs := flag.NewFlagSet(arg0, flag.ExitOnError)
 	chdir := fs.String("chdir", "", "change to `path` before running --check or exec")
@@ -119,14 +130,6 @@ func main() {
 		os.Exit(exitUsage)
 	}
 
-	if err := syscall.Setresgid(egid, egid, egid); err != nil {
-		fmt.Fprintf(os.Stderr, "%s: setresgid: %v\n", arg0, err)
-		os.Exit(exitError)
-	}
-	if err := syscall.Setresuid(euid, euid, euid); err != nil {
-		fmt.Fprintf(os.Stderr, "%s: setresuid: %v\n", arg0, err)
-		os.Exit(exitError)
-	}
 	if err := syscall.Exec(args[0], args, os.Environ()); err != nil {
 		fmt.Fprintf(os.Stderr, "%s: exec %q: %v\n", arg0, args[0], err)
 		os.Exit(exitError)
