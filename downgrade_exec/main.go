@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -14,6 +15,40 @@ const (
 	exitViolations = 3
 	exitError      = 4
 )
+
+// checkFlag implements flag.Value for --check=writable,unreadable.
+type checkFlag struct {
+	modes CheckMode
+}
+
+func (f *checkFlag) String() string {
+	var parts []string
+	if f.modes&CheckWritable != 0 {
+		parts = append(parts, "writable")
+	}
+	if f.modes&CheckUnreadable != 0 {
+		parts = append(parts, "unreadable")
+	}
+	return strings.Join(parts, ",")
+}
+
+func (f *checkFlag) Set(s string) error {
+	if s == "" {
+		return fmt.Errorf("value required (valid: writable, unreadable)")
+	}
+	f.modes = 0
+	for _, token := range strings.Split(s, ",") {
+		switch strings.TrimSpace(token) {
+		case "writable":
+			f.modes |= CheckWritable
+		case "unreadable":
+			f.modes |= CheckUnreadable
+		default:
+			return fmt.Errorf("unknown check mode %q (valid: writable, unreadable)", token)
+		}
+	}
+	return nil
+}
 
 func main() {
 	arg0 := filepath.Base(os.Args[0])
@@ -29,17 +64,18 @@ func main() {
 		os.Exit(exitSecurity)
 	}
 
+	check := &checkFlag{}
 	fs := flag.NewFlagSet(arg0, flag.ExitOnError)
 	chdir := fs.String("chdir", "", "change to `path` before running --check or exec")
-	check := fs.Bool("check", false, "check for writable paths; if a command is given, exec it only if no violations found")
+	fs.Var(check, "check", "comma-separated check modes: writable, unreadable")
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [flags] [-- command [args...]]\n\n", arg0)
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		fs.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
-		fmt.Fprintf(os.Stderr, "  %s --check\n", arg0)
-		fmt.Fprintf(os.Stderr, "  %s --chdir /app --check\n", arg0)
-		fmt.Fprintf(os.Stderr, "  %s --chdir /app --check -- /bin/sh -c 'echo hello'\n", arg0)
+		fmt.Fprintf(os.Stderr, "  %s --check=writable\n", arg0)
+		fmt.Fprintf(os.Stderr, "  %s --chdir /app --check=writable,unreadable\n", arg0)
+		fmt.Fprintf(os.Stderr, "  %s --chdir /app --check=writable -- /bin/sh -c 'echo hello'\n", arg0)
 		fmt.Fprintf(os.Stderr, "  %s -- /usr/bin/ls -l\n", arg0)
 	}
 	fs.Parse(os.Args[1:]) //nolint:errcheck // ExitOnError handles this
@@ -60,17 +96,15 @@ func main() {
 		}
 	}
 
-	if *check {
-		violations, err := checkWriteAccess(".", uint32(euid), uint32(egid))
+	if check.modes != 0 {
+		violations, err := checkAccess(".", UID(euid), GID(egid), check.modes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: check: %v\n", arg0, err)
 			os.Exit(exitError)
 		}
+		reportViolations(arg0, violations, CheckWritable, "writable")
+		reportViolations(arg0, violations, CheckUnreadable, "unreadable")
 		if len(violations) > 0 {
-			fmt.Fprintf(os.Stderr, "%s: security check failed: %d writable path(s) detected:\n", arg0, len(violations))
-			for _, v := range violations {
-				fmt.Fprintf(os.Stderr, "  %s\n", v)
-			}
 			os.Exit(exitViolations)
 		}
 		if len(args) == 0 {
@@ -96,5 +130,21 @@ func main() {
 	if err := syscall.Exec(args[0], args, os.Environ()); err != nil {
 		fmt.Fprintf(os.Stderr, "%s: exec %q: %v\n", arg0, args[0], err)
 		os.Exit(exitError)
+	}
+}
+
+func reportViolations(arg0 string, violations []Violation, mode CheckMode, label string) {
+	var paths []string
+	for _, v := range violations {
+		if v.Mode&mode != 0 {
+			paths = append(paths, v.Path)
+		}
+	}
+	if len(paths) == 0 {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "%s: security check failed: %d %s path(s) detected:\n", arg0, len(paths), label)
+	for _, p := range paths {
+		fmt.Fprintf(os.Stderr, "  %s\n", p)
 	}
 }
