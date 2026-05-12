@@ -71,8 +71,8 @@ var modeCases = []modeCase{
 		func(b fs.FileMode) fs.FileMode { return (b | 0002) &^ 0004 },
 		func(b fs.FileMode) fs.FileMode { return (b &^ 0002) | 0004 },
 	},
-	// 0620: group -w- with no world read — group-writable and unreadable by group+world
-	{CheckWritable | CheckUnreadable, "group", 0640,
+	// 0730: group -wx — group-writable and unreadable (no group/world read); base 0750 preserves execute
+	{CheckWritable | CheckUnreadable, "group", 0750,
 		func(b fs.FileMode) fs.FileMode { return (b | 0020) &^ 0040 },
 		func(b fs.FileMode) fs.FileMode { return (b &^ 0020) | 0040 },
 	},
