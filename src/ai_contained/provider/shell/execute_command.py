@@ -2,8 +2,23 @@
 
 from fastmcp import FastMCP
 
+_BLOCKED: frozenset[str] = frozenset(
+    {
+        # shells
+        "bash", "sh", "zsh", "dash", "fish", "ksh", "csh", "tcsh",
+        # interpreters
+        "python", "python3", "python2", "perl", "ruby", "node", "nodejs", "lua", "php",
+        # escape hatches
+        "env", "xargs", "sudo", "su",
+        # read-only utilities (execute_bash handles these)
+        "ls", "cat", "echo", "printf", "grep", "find", "head", "tail", "stat",
+        # no-ops
+        "true", "false",
+    }
+)
 
-def register(mcp: FastMCP) -> None:
+
+def register(mcp: FastMCP, *, blocklist: frozenset[str] = _BLOCKED) -> None:
     """Register the execute_command tool with the MCP server."""
 
     @mcp.tool(name="execute_command")
