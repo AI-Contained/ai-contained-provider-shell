@@ -189,9 +189,14 @@ def describe_execute_command() -> None:
             )
             assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
 
-        async def it_passes_custom_path_to_child_process(execute_command: ExecuteCommand) -> None:
-            expected = "/custom/bin"
-            result = await execute_command("printenv", ["PATH"], environment={"PATH": expected})
+        async def it_resolves_command_via_environment_path(
+            execute_command: ExecuteCommand, tmp_path: Path
+        ) -> None:
+            expected = "from_custom_path"
+            fake_bin = tmp_path / "my_script"
+            fake_bin.write_text(f"#!/bin/sh\necho {expected}\n")
+            fake_bin.chmod(0o755)
+            result = await execute_command("my_script", [], environment={"PATH": str(tmp_path)})
             assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
 
     def describe_summary() -> None:
