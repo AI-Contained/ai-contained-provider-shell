@@ -74,15 +74,12 @@ def describe_execute_command() -> None:
             elicitor.accept(
                 expect_message=assert_command_prompt(command, arguments, working_dir=working_dir, summary=summary)
             )
-            args: dict[str, Any] = {"command": command, "arguments": arguments}
-            if working_dir:
-                args["working_dir"] = working_dir
-            if environment is not None:
-                args["environment"] = environment
-            if summary:
-                args["summary"] = summary
             return WrapCallToolResult(
-                **vars(await client_any_command.call_tool("execute_command", args, raise_on_error=raise_on_error))
+                **vars(await client_any_command.call_tool(
+                    "execute_command",
+                    {"command": command, "arguments": arguments, "working_dir": working_dir, "environment": environment, "summary": summary},
+                    raise_on_error=raise_on_error,
+                ))
             )
 
         return _run
@@ -96,7 +93,7 @@ def describe_execute_command() -> None:
             assert_that(result.is_error).is_false()
             assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": expected, "stderr": ""})
 
-        async def it_captures_stderr(execute_command: ExecuteCommand) -> None:
+        async def it_captures_stderr_and_nonzero_exit(execute_command: ExecuteCommand) -> None:
             result = await execute_command("ls", ["/nonexistent_xyz_abc_123"])
             assert_that(result.is_error).is_false()
             assert_that(result.json()["exit_status"]).is_not_equal_to("0")
@@ -109,23 +106,7 @@ def describe_execute_command() -> None:
             assert_that(result.json()["stdout"]).is_not_empty()
             assert_that(result.json()["stderr"]).is_not_empty()
 
-        async def it_returns_exit_status_as_string_not_int(execute_command: ExecuteCommand) -> None:
-            result = await execute_command("ls", ["/tmp"])
-            assert_that(result.json()["exit_status"]).is_instance_of(str)
-
-        async def it_returns_nonzero_exit_status(execute_command: ExecuteCommand) -> None:
-            result = await execute_command("ls", ["/nonexistent_xyz_abc_123"])
-            assert_that(result.is_error).is_false()
-            assert_that(result.json()["exit_status"]).is_not_equal_to("0")
-
     def describe_arguments() -> None:
-        async def it_passes_arguments_to_command(execute_command: ExecuteCommand, tmp_path: Path) -> None:
-            expected = "world\n"
-            hello_file = tmp_path / "hello.txt"
-            hello_file.write_text(expected)
-            result = await execute_command("cat", [str(hello_file)])
-            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": expected, "stderr": ""})
-
         async def it_does_not_expand_shell_globs(execute_command: ExecuteCommand, tmp_path: Path) -> None:
             expected = str(tmp_path / "*.txt")
             result = await execute_command("ls", [expected])
@@ -154,10 +135,6 @@ def describe_execute_command() -> None:
             assert_that(result.is_error).is_true()
 
     def describe_path_resolution() -> None:
-        async def it_resolves_command_via_path(execute_command: ExecuteCommand) -> None:
-            result = await execute_command("ls", ["/tmp"])
-            assert_that(result.json()["exit_status"]).is_equal_to("0")
-
         async def it_rejects_unknown_command(client_any_command: Client[FastMCPTransport]) -> None:
             expected = "nonexistent_command_xyz_abc"
             result = await client_any_command.call_tool(
