@@ -89,10 +89,12 @@ def describe_execute_command() -> None:
 
     def describe_basic_execution() -> None:
         async def it_runs_a_command_and_returns_stdout(execute_command: ExecuteCommand, tmp_path: Path) -> None:
-            (tmp_path / "hello.txt").write_text("world\n")
-            result = await execute_command("cat", [str(tmp_path / "hello.txt")])
+            expected = "world\n"
+            hello_file = tmp_path / "hello.txt"
+            hello_file.write_text(expected)
+            result = await execute_command("cat", [str(hello_file)])
             assert_that(result.is_error).is_false()
-            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": "world\n", "stderr": ""})
+            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": expected, "stderr": ""})
 
         async def it_captures_stderr(execute_command: ExecuteCommand) -> None:
             result = await execute_command("ls", ["/nonexistent_xyz_abc_123"])
@@ -118,27 +120,29 @@ def describe_execute_command() -> None:
 
     def describe_arguments() -> None:
         async def it_passes_arguments_to_command(execute_command: ExecuteCommand, tmp_path: Path) -> None:
-            (tmp_path / "hello.txt").write_text("world\n")
-            result = await execute_command("cat", [str(tmp_path / "hello.txt")])
-            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": "world\n", "stderr": ""})
+            expected = "world\n"
+            hello_file = tmp_path / "hello.txt"
+            hello_file.write_text(expected)
+            result = await execute_command("cat", [str(hello_file)])
+            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": expected, "stderr": ""})
 
         async def it_does_not_expand_shell_globs(execute_command: ExecuteCommand, tmp_path: Path) -> None:
-            # a shell would expand *.txt — direct exec passes the literal string
-            result = await execute_command("ls", [str(tmp_path / "*.txt")])
+            expected = str(tmp_path / "*.txt")
+            result = await execute_command("ls", [expected])
             assert_that(result.json()["exit_status"]).is_not_equal_to("0")
-            assert_that(result.json()["stderr"]).contains("*.txt")
+            assert_that(result.json()["stderr"]).contains(expected)
 
     def describe_blocklist() -> None:
-        @pytest.mark.parametrize("blocked", sorted(_BLOCKED))
+        @pytest.mark.parametrize("expected", sorted(_BLOCKED))
         async def it_rejects_blocked_commands(
-            client: Client[FastMCPTransport], blocked: str
+            client: Client[FastMCPTransport], expected: str
         ) -> None:
             result = await client.call_tool(
-                "execute_command", {"command": blocked, "arguments": []}, raise_on_error=False
+                "execute_command", {"command": expected, "arguments": []}, raise_on_error=False
             )
             assert_that(result.is_error).is_true()
             assert isinstance(result.content[0], TextContent)
-            assert_that(result.content[0].text).contains(blocked)
+            assert_that(result.content[0].text).contains(expected)
 
         async def it_rejects_before_elicitation(
             client: Client[FastMCPTransport], elicitor: Elicitor
@@ -155,14 +159,13 @@ def describe_execute_command() -> None:
             assert_that(result.json()["exit_status"]).is_equal_to("0")
 
         async def it_rejects_unknown_command(client_any_command: Client[FastMCPTransport]) -> None:
+            expected = "nonexistent_command_xyz_abc"
             result = await client_any_command.call_tool(
-                "execute_command",
-                {"command": "nonexistent_command_xyz_abc", "arguments": []},
-                raise_on_error=False,
+                "execute_command", {"command": expected, "arguments": []}, raise_on_error=False
             )
             assert_that(result.is_error).is_true()
             assert isinstance(result.content[0], TextContent)
-            assert_that(result.content[0].text).contains("nonexistent_command_xyz_abc")
+            assert_that(result.content[0].text).contains(expected)
 
     def describe_working_dir() -> None:
         @pytest.fixture
@@ -173,13 +176,13 @@ def describe_execute_command() -> None:
             yield root
 
         async def it_runs_in_specified_working_dir(execute_command: ExecuteCommand, sandbox: Path) -> None:
-            subdir = sandbox / "work"
-            subdir.mkdir()
-            result = await execute_command("pwd", working_dir=str(subdir))
-            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{subdir}\n", "stderr": ""})
+            expected = sandbox / "work"
+            expected.mkdir()
+            result = await execute_command("pwd", working_dir=str(expected))
+            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
 
         async def it_shows_relative_path_in_elicitation(execute_command: ExecuteCommand, sandbox: Path) -> None:
-            # assert_command_prompt uses os.path.relpath — elicitor validates the message matches
+            # assert_command_prompt uses os.path.relpath — elicitor validates the message
             result = await execute_command("pwd", working_dir="/tmp")
             assert_that(result.json()["exit_status"]).is_equal_to("0")
 
@@ -187,33 +190,37 @@ def describe_execute_command() -> None:
         async def it_inherits_env_vars_from_parent_process(
             execute_command: ExecuteCommand, monkeypatch: pytest.MonkeyPatch
         ) -> None:
-            monkeypatch.setenv("EXECUTE_CMD_TEST_VAR", "from_parent")
+            expected = "from_parent"
+            monkeypatch.setenv("EXECUTE_CMD_TEST_VAR", expected)
             result = await execute_command("printenv", ["EXECUTE_CMD_TEST_VAR"])
-            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": "from_parent\n", "stderr": ""})
+            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
 
         async def it_merges_additional_env_vars(execute_command: ExecuteCommand) -> None:
+            expected = "injected"
             result = await execute_command(
-                "printenv", ["EXECUTE_CMD_EXTRA_VAR"], environment={"EXECUTE_CMD_EXTRA_VAR": "injected"}
+                "printenv", ["EXECUTE_CMD_EXTRA_VAR"], environment={"EXECUTE_CMD_EXTRA_VAR": expected}
             )
-            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": "injected\n", "stderr": ""})
+            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
 
         async def it_overrides_existing_env_vars(
             execute_command: ExecuteCommand, monkeypatch: pytest.MonkeyPatch
         ) -> None:
+            expected = "overridden"
             monkeypatch.setenv("EXECUTE_CMD_TEST_VAR", "original")
             result = await execute_command(
-                "printenv", ["EXECUTE_CMD_TEST_VAR"], environment={"EXECUTE_CMD_TEST_VAR": "overridden"}
+                "printenv", ["EXECUTE_CMD_TEST_VAR"], environment={"EXECUTE_CMD_TEST_VAR": expected}
             )
-            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": "overridden\n", "stderr": ""})
+            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
 
         async def it_passes_custom_path_to_child_process(execute_command: ExecuteCommand) -> None:
-            # custom PATH is visible to the executed command (and its children)
-            result = await execute_command("printenv", ["PATH"], environment={"PATH": "/custom/bin"})
-            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": "/custom/bin\n", "stderr": ""})
+            expected = "/custom/bin"
+            result = await execute_command("printenv", ["PATH"], environment={"PATH": expected})
+            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
 
     def describe_summary() -> None:
         async def it_includes_summary_in_elicitation(execute_command: ExecuteCommand) -> None:
-            result = await execute_command("ls", ["/tmp"], summary="listing tmp directory")
+            expected = "listing tmp directory"
+            result = await execute_command("ls", ["/tmp"], summary=expected)
             assert_that(result.is_error).is_false()
             assert_that(result.json()["exit_status"]).is_equal_to("0")
 
@@ -221,10 +228,11 @@ def describe_execute_command() -> None:
         async def it_returns_cancelled_when_user_declines(
             client_any_command: Client[FastMCPTransport], elicitor: Elicitor
         ) -> None:
+            expected = "Tool use was cancelled by the user"
             elicitor.decline(expect_message=assert_command_prompt("ls", ["/tmp"]))
             result = await client_any_command.call_tool(
                 "execute_command", {"command": "ls", "arguments": ["/tmp"]}, raise_on_error=False
             )
             assert_that(result.is_error).is_true()
             assert isinstance(result.content[0], TextContent)
-            assert_that(result.content[0].text).is_equal_to("Tool use was cancelled by the user")
+            assert_that(result.content[0].text).is_equal_to(expected)
