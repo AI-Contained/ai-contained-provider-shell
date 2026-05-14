@@ -1,4 +1,4 @@
-"""execute_bash tool — run shell commands."""
+"""read_bash tool — run shell commands."""
 
 import json
 import os
@@ -7,18 +7,20 @@ import subprocess
 from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 
+_TOOL_TAG = "shell::read"
+
 
 def register(mcp: FastMCP) -> None:
-    """Register the execute_bash tool with the MCP server."""
+    """Register the read_bash tool with the MCP server."""
 
-    @mcp.tool(name="execute_bash")
-    async def execute_bash(  # noqa: D417
+    @mcp.tool(name="read_bash")
+    async def read_bash(  # noqa: D417
         command: str,
         ctx: Context,
         working_dir: str | None = None,
         summary: str | None = None,
     ) -> str:
-        """Execute a bash command and return stdout, stderr, and exit status.
+        """Run a read-only bash command and return stdout, stderr, and exit status.
 
         Parameters
         ----------
@@ -55,9 +57,9 @@ def register(mcp: FastMCP) -> None:
         """
         if working_dir:
             rel = os.path.relpath(working_dir, os.getcwd())
-            msg = f"I will run the following command: {command} (in {rel}) (using tool: shell)"
+            msg = f"I will run the following command: {command} (in {rel}) (using tool: {_TOOL_TAG})"
         else:
-            msg = f"I will run the following command: {command} (using tool: shell)"
+            msg = f"I will run the following command: {command} (using tool: {_TOOL_TAG})"
 
         if summary:
             msg += f"\nPurpose: {summary}"
