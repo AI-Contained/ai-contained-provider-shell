@@ -65,9 +65,11 @@ def register(mcp: FastMCP) -> None:
         if summary:
             msg += f"\nPurpose: {summary}"
 
-        result = await ctx.elicit(message=msg, response_type=None)
-        if result.action != "accept":
-            raise ToolError("Tool use was cancelled by the user")
+        # elicit (skipped when EXPERIMENTAL_ALLOW_ALL_READS is set)
+        if not os.environ.get("EXPERIMENTAL_ALLOW_ALL_READS"):
+            result = await ctx.elicit(message=msg, response_type=None)
+            if result.action != "accept":
+                raise ToolError("Tool use was cancelled by the user")
 
         downgrade_exec = (
             os.environ.get("DOWNGRADE_EXEC") or shutil.which("downgrade_exec") or "/usr/local/bin/downgrade_exec"
