@@ -37,7 +37,8 @@ class ExecuteCommand:
         return WrapCallToolResult(
             **vars(await self.client.call_tool(
                 "write_command",
-                {"command": command, "arguments": arguments, "working_dir": working_dir, "environment": environment, "summary": summary},
+                {"command": command, "arguments": arguments, "working_dir": working_dir,
+                 "environment": environment, "summary": summary},
                 raise_on_error=raise_on_error,
             ))
         )

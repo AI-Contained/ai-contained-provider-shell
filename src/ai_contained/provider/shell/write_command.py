@@ -41,7 +41,7 @@ def register(mcp: FastMCP, *, blocklist: frozenset[str] = _BLOCKED) -> None:
     async def write_command(
         command: str,
         ctx: Context,
-        arguments: list[str] = [],  # noqa: B006
+        arguments: list[str] = [],
         working_dir: str | None = None,
         environment: dict[str, str] | None = None,
         summary: str | None = None,
@@ -61,11 +61,12 @@ def register(mcp: FastMCP, *, blocklist: frozenset[str] = _BLOCKED) -> None:
         if Path(resolved).name in blocklist:
             raise ToolError(f"write_command: {command!r} is not permitted")
 
+        cmd_str = " ".join([command] + arguments)
         if working_dir:
             rel = os.path.relpath(working_dir, os.getcwd())
-            msg = f"I will run the following command: {' '.join([command] + arguments)} (in {rel}) (using tool: {_colorize(_TOOL_TAG)})"
+            msg = f"I will run the following command: {cmd_str} (in {rel}) (using tool: {_colorize(_TOOL_TAG)})"
         else:
-            msg = f"I will run the following command: {' '.join([command] + arguments)} (using tool: {_colorize(_TOOL_TAG)})"
+            msg = f"I will run the following command: {cmd_str} (using tool: {_colorize(_TOOL_TAG)})"
 
         if summary:
             msg += f"\nPurpose: {summary}"
