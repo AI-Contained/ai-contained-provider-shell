@@ -62,9 +62,7 @@ def describe_read_bash() -> None:
                 args["working_dir"] = working_dir
             if summary:
                 args["summary"] = summary
-            return WrapCallToolResult(
-                **vars(await client.call_tool("read_bash", args, raise_on_error=raise_on_error))
-            )
+            return WrapCallToolResult(**vars(await client.call_tool("read_bash", args, raise_on_error=raise_on_error)))
 
         return _run
 

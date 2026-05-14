@@ -70,9 +70,7 @@ def register(mcp: FastMCP) -> None:
             raise ToolError("Tool use was cancelled by the user")
 
         downgrade_exec = (
-            os.environ.get("DOWNGRADE_EXEC")
-            or shutil.which("downgrade_exec")
-            or "/usr/local/bin/downgrade_exec"
+            os.environ.get("DOWNGRADE_EXEC") or shutil.which("downgrade_exec") or "/usr/local/bin/downgrade_exec"
         )
         downgrade_args = os.environ.get("DOWNGRADE_ARGS", "--check=writable").split()
         proc = subprocess.run(

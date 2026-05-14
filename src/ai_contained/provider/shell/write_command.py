@@ -12,15 +12,42 @@ from fastmcp.exceptions import ToolError
 _BLOCKED: frozenset[str] = frozenset(
     {
         # shells
-        "bash", "sh", "zsh", "dash", "fish", "ksh", "csh", "tcsh",
+        "bash",
+        "sh",
+        "zsh",
+        "dash",
+        "fish",
+        "ksh",
+        "csh",
+        "tcsh",
         # interpreters
-        "python", "python3", "python2", "perl", "ruby", "node", "nodejs", "lua", "php",
+        "python",
+        "python3",
+        "python2",
+        "perl",
+        "ruby",
+        "node",
+        "nodejs",
+        "lua",
+        "php",
         # escape hatches
-        "env", "xargs", "sudo", "su",
+        "env",
+        "xargs",
+        "sudo",
+        "su",
         # read-only utilities (execute_bash handles these)
-        "ls", "cat", "echo", "printf", "grep", "find", "head", "tail", "stat",
+        "ls",
+        "cat",
+        "echo",
+        "printf",
+        "grep",
+        "find",
+        "head",
+        "tail",
+        "stat",
         # no-ops
-        "true", "false",
+        "true",
+        "false",
     }
 )
 

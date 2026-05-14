@@ -35,12 +35,19 @@ class ExecuteCommand:
             expect_message=assert_command_prompt(command, arguments, working_dir=working_dir, summary=summary)
         )
         return WrapCallToolResult(
-            **vars(await self.client.call_tool(
-                "write_command",
-                {"command": command, "arguments": arguments, "working_dir": working_dir,
-                 "environment": environment, "summary": summary},
-                raise_on_error=raise_on_error,
-            ))
+            **vars(
+                await self.client.call_tool(
+                    "write_command",
+                    {
+                        "command": command,
+                        "arguments": arguments,
+                        "working_dir": working_dir,
+                        "environment": environment,
+                        "summary": summary,
+                    },
+                    raise_on_error=raise_on_error,
+                )
+            )
         )
 
 
@@ -128,9 +135,7 @@ def describe_write_command() -> None:
 
     def describe_blocklist() -> None:
         @pytest.mark.parametrize("expected", sorted(_BLOCKED))
-        async def it_rejects_blocked_commands(
-            client: Client[FastMCPTransport], expected: str
-        ) -> None:
+        async def it_rejects_blocked_commands(client: Client[FastMCPTransport], expected: str) -> None:
             result = await client.call_tool(
                 "write_command", {"command": expected, "arguments": []}, raise_on_error=False
             )
@@ -149,12 +154,8 @@ def describe_write_command() -> None:
             assert isinstance(result.content[0], TextContent)
             assert_that(result.content[0].text).is_equal_to(f"write_command: {expected!r} is not permitted")
 
-        async def it_rejects_before_elicitation(
-            client: Client[FastMCPTransport], elicitor: Elicitor
-        ) -> None:
-            result = await client.call_tool(
-                "write_command", {"command": "bash", "arguments": []}, raise_on_error=False
-            )
+        async def it_rejects_before_elicitation(client: Client[FastMCPTransport], elicitor: Elicitor) -> None:
+            result = await client.call_tool("write_command", {"command": "bash", "arguments": []}, raise_on_error=False)
             assert_that(result.is_error).is_true()
 
     def describe_path_resolution() -> None:
@@ -225,7 +226,8 @@ def describe_write_command() -> None:
             expected = f"-{base}-"
             monkeypatch.setenv("EXECUTE_CMD_BASE_VAR", base)
             result = await write_command(
-                "printenv", ["EXECUTE_CMD_DERIVED_VAR"],
+                "printenv",
+                ["EXECUTE_CMD_DERIVED_VAR"],
                 environment={"EXECUTE_CMD_DERIVED_VAR": "-$EXECUTE_CMD_BASE_VAR-"},
             )
             assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
@@ -265,9 +267,7 @@ def describe_write_command() -> None:
                 await c.call_tool("write_command", {"command": "ls", "arguments": ["/tmp"]}, raise_on_error=False)
 
     def describe_decline() -> None:
-        async def it_returns_cancelled_when_user_declines(
-            write_command: ExecuteCommand, elicitor: Elicitor
-        ) -> None:
+        async def it_returns_cancelled_when_user_declines(write_command: ExecuteCommand, elicitor: Elicitor) -> None:
             expected = "Tool use was cancelled by the user"
             elicitor.decline(expect_message=assert_command_prompt("ls", ["/tmp"]))
             result = await write_command.client.call_tool(
