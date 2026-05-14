@@ -28,8 +28,7 @@ _BLOCKED: frozenset[str] = frozenset(
 def register(mcp: FastMCP, *, blocklist: frozenset[str] = _BLOCKED) -> None:
     """Register the execute_command tool with the MCP server."""
 
-    @mcp.tool(name="execute_command")
-    async def execute_command(  # noqa: D417
+    async def execute_command(
         command: str,
         arguments: list[str],
         ctx: Context,
@@ -37,45 +36,6 @@ def register(mcp: FastMCP, *, blocklist: frozenset[str] = _BLOCKED) -> None:
         environment: dict[str, str] | None = None,
         summary: str | None = None,
     ) -> str:
-        """Execute a single program directly (no shell) and return stdout, stderr, and exit status.
-
-        Unlike execute_bash, no shell interpretation occurs — pipes, redirects, and glob
-        expansion are not supported. Use this tool for writable operations (e.g. installing
-        packages, writing build artefacts). Read-only operations belong in execute_bash.
-
-        Parameters
-        ----------
-          command      Executable name (e.g. "git", "npm") or absolute path. Resolved via
-                       PATH after merging environment. Shell builtins and interpreters are
-                       rejected.
-          arguments    Positional arguments passed directly to the program (argv[1..]).
-                       No shell expansion — each element is a literal argument.
-          working_dir  Directory to run the command in (optional, default: cwd).
-          environment  Additional environment variables merged over the process environment
-                       (optional). Affects PATH resolution and is passed to the child process.
-          summary      Human-readable description of what the command does (optional).
-
-        Return value (JSON):
-          { "exit_status": "0", "stdout": "...", "stderr": "..." }
-          NOTE: exit_status is always a string, not an integer.
-
-        Gotchas:
-          - Shell features (pipes, &&, subshells) are not available — use execute_bash instead
-          - A non-zero exit_status does NOT make the tool return is_error=True —
-            always check exit_status explicitly
-
-        Examples
-        --------
-          # Install a package
-          {"command": "pip", "arguments": ["install", "requests"]}
-
-          # Run git in a specific directory
-          {"command": "git", "arguments": ["commit", "-m", "fix: typo"], "working_dir": "/code"}
-
-          # Pass extra env vars
-          {"command": "make", "arguments": ["build"], "environment": {"DEBUG": "1"}}
-
-        """
         name = Path(command).name
         if name in blocklist:
             raise ToolError(f"execute_command: {name!r} is not permitted")
@@ -118,3 +78,47 @@ def register(mcp: FastMCP, *, blocklist: frozenset[str] = _BLOCKED) -> None:
                 "stdout": proc.stdout,
             }
         )
+
+    execute_command.__doc__ = """\
+Execute a single program directly (no shell) and return stdout, stderr, and exit status.
+
+        Unlike execute_bash, no shell interpretation occurs — pipes, redirects, and glob
+        expansion are not supported. Use this tool for writable operations (e.g. installing
+        packages, writing build artefacts). Read-only operations belong in execute_bash.
+
+        Parameters
+        ----------
+          command      Executable name (e.g. "git", "npm") or absolute path. Resolved via
+                       PATH after merging environment. The following commands are not
+                       permitted: %s
+          arguments    Positional arguments passed directly to the program (argv[1..]).
+                       No shell expansion — each element is a literal argument.
+          working_dir  Directory to run the command in (optional, default: cwd).
+          environment  Additional environment variables merged over the process environment
+                       (optional). Values support $VAR expansion. Affects PATH resolution
+                       and is passed to the child process.
+          summary      Human-readable description of what the command does (optional).
+
+        Return value (JSON):
+          { "exit_status": "0", "stdout": "...", "stderr": "..." }
+          NOTE: exit_status is always a string, not an integer.
+
+        Gotchas:
+          - Shell features (pipes, &&, subshells) are not available — use execute_bash instead
+          - A non-zero exit_status does NOT make the tool return is_error=True —
+            always check exit_status explicitly
+
+        Examples
+        --------
+          # Install a package
+          {"command": "pip", "arguments": ["install", "requests"]}
+
+          # Run git in a specific directory
+          {"command": "git", "arguments": ["commit", "-m", "fix: typo"], "working_dir": "/code"}
+
+          # Pass extra env vars
+          {"command": "make", "arguments": ["build"], "environment": {"DEBUG": "1"}}
+
+        """ % ", ".join(sorted(blocklist))
+
+    mcp.tool(name="execute_command")(execute_command)
