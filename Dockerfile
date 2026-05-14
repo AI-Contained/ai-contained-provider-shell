@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     # downgrade_exec to irreversibly drop privileges via setresuid before execing the
     # target command.
     chown 65534:65534 /downgrade_exec && \
-    chmod u+s /downgrade_exec
+    chmod u+s,g+s /downgrade_exec
 
 FROM scratch
 COPY --link --from=downgrade_exec-builder /downgrade_exec /opt/ai-contained-provider-shell/bin/downgrade_exec
