@@ -21,7 +21,14 @@ def register(mcp: FastMCP) -> None:
         working_dir: str | None = None,
         summary: str | None = None,
     ) -> str:
-        """Run a read-only bash command and return stdout, stderr, and exit status.
+        """Run a limited bash command and return stdout, stderr, and exit status.
+
+        The workspace is write-protected during execution — the process physically cannot
+        modify workspace files. Writes outside the workspace (e.g. /tmp) are permitted.
+        Use this tool for any command whose purpose is to observe or verify state: tests,
+        linters, build tools that read source files, etc. — even if they incidentally
+        write cache files or temporary artefacts outside the workspace.
+        Use write_command instead only when the program must write into the workspace.
 
         Parameters
         ----------

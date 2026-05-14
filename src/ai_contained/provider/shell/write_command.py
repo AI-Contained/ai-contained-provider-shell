@@ -120,9 +120,13 @@ def register(mcp: FastMCP, *, blocklist: frozenset[str] = _BLOCKED) -> None:
     write_command.__doc__ = """\
 Execute a single program directly (no shell) and return stdout, stderr, and exit status.
 
-        Unlike execute_bash, no shell interpretation occurs — pipes, redirects, and glob
-        expansion are not supported. Use this tool for writable operations (e.g. installing
-        packages, writing build artefacts). Read-only operations belong in execute_bash.
+        Unlike read_bash, no shell interpretation occurs — pipes, redirects, and glob
+        expansion are not supported. Use this tool only when the program must write into
+        the workspace — modifying project files, applying migrations, etc. The workspace
+        is write-protected during read_bash execution; use this tool to bypass that
+        protection intentionally. If the program's purpose is to observe or verify state
+        (tests, linters, build tools that only read source files), use read_bash even if
+        it incidentally writes outside the workspace.
 
         Parameters
         ----------
