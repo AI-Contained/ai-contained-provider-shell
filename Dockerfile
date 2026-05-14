@@ -8,7 +8,7 @@ FROM --platform=$BUILDPLATFORM golang:1.25-alpine3.21 AS downgrade_exec-builder
 ARG TARGETOS
 ARG TARGETARCH
 # llvm provides llvm-strip, which (unlike binutils strip) handles any target arch
-RUN apk add --no-cache llvm
+RUN apk add --no-cache llvm libcap
 WORKDIR /src
 COPY downgrade_exec/ ./
 RUN go test ./...
@@ -20,7 +20,11 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     # downgrade_exec to irreversibly drop privileges via setresuid before execing the
     # target command.
     chown 65534:65534 /downgrade_exec && \
-    chmod u+s,g+s /downgrade_exec
+    chmod u+s,g+s /downgrade_exec && \
+    # cap_setgid allows downgrade_exec to call setgroups(2) as a non-root process,
+    # which is required to drop supplementary groups inherited from the parent.
+    # Without this, setgroups would fail with EPERM even though we hold the setgid bit.
+    setcap cap_setgid+ep /downgrade_exec
 
 FROM scratch
 COPY --link --from=downgrade_exec-builder /downgrade_exec /opt/ai-contained-provider-shell/bin/downgrade_exec

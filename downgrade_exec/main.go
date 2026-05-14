@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -66,6 +68,12 @@ func main() {
 
 	// Drop privileges immediately — lock all three (real, effective, saved) to nobody.
 	// This ensures both the --check walk and the final exec run under the same identity.
+	// Supplementary groups must be dropped first: once Setresuid runs, CAP_SETGID is
+	// gone and setgroups(2) would fail with EPERM.
+	if err := syscall.Setgroups([]int{}); err != nil {
+		fmt.Fprintf(os.Stderr, "%s: setgroups: %v\n", arg0, err)
+		os.Exit(exitError)
+	}
 	if err := syscall.Setresgid(egid, egid, egid); err != nil {
 		fmt.Fprintf(os.Stderr, "%s: setresgid: %v\n", arg0, err)
 		os.Exit(exitError)
@@ -73,6 +81,21 @@ func main() {
 	if err := syscall.Setresuid(euid, euid, euid); err != nil {
 		fmt.Fprintf(os.Stderr, "%s: setresuid: %v\n", arg0, err)
 		os.Exit(exitError)
+	}
+
+	// Assert the drop was complete: all three of real/effective/saved must equal
+	// the target identity and no supplementary groups must remain.
+	if ruid, euid2, suid := unix.Getresuid(); ruid != euid || euid2 != euid || suid != euid {
+		fmt.Fprintf(os.Stderr, "%s: uid assertion failed after setresuid\n", arg0)
+		os.Exit(exitSecurity)
+	}
+	if rgid, egid2, sgid := unix.Getresgid(); rgid != egid || egid2 != egid || sgid != egid {
+		fmt.Fprintf(os.Stderr, "%s: gid assertion failed after setresgid\n", arg0)
+		os.Exit(exitSecurity)
+	}
+	if groups, err := syscall.Getgroups(); err != nil || len(groups) != 0 {
+		fmt.Fprintf(os.Stderr, "%s: supplementary groups remain after setgroups\n", arg0)
+		os.Exit(exitSecurity)
 	}
 
 	check := &checkFlag{}
