@@ -137,6 +137,17 @@ def describe_execute_command() -> None:
             assert isinstance(result.content[0], TextContent)
             assert_that(result.content[0].text).is_equal_to(f"execute_command: {expected!r} is not permitted")
 
+        async def it_rejects_absolute_path_to_blocked_command(
+            client: Client[FastMCPTransport],
+        ) -> None:
+            expected = "bash"
+            result = await client.call_tool(
+                "execute_command", {"command": f"/bin/{expected}", "arguments": []}, raise_on_error=False
+            )
+            assert_that(result.is_error).is_true()
+            assert isinstance(result.content[0], TextContent)
+            assert_that(result.content[0].text).is_equal_to(f"execute_command: {expected!r} is not permitted")
+
         async def it_rejects_before_elicitation(
             client: Client[FastMCPTransport], elicitor: Elicitor
         ) -> None:
@@ -146,6 +157,13 @@ def describe_execute_command() -> None:
             assert_that(result.is_error).is_true()
 
     def describe_path_resolution() -> None:
+        async def it_accepts_absolute_path(execute_command: ExecuteCommand, tmp_path: Path) -> None:
+            expected = "world\n"
+            hello_file = tmp_path / "hello.txt"
+            hello_file.write_text(expected)
+            result = await execute_command("/bin/cat", [str(hello_file)])
+            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": expected, "stderr": ""})
+
         async def it_rejects_unknown_command(execute_command: ExecuteCommand) -> None:
             expected = "nonexistent_command_xyz_abc"
             result = await execute_command.client.call_tool(
