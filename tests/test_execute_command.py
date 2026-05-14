@@ -1,7 +1,6 @@
 import os
-from collections.abc import AsyncGenerator, Callable, Coroutine, Generator
+from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
-from typing import Any
 
 import pytest
 from assertpy import assert_that  # type: ignore[import-untyped]
@@ -14,7 +13,34 @@ from ai_contained.core.mcp.testing import Elicitor, WrapCallToolResult
 from ai_contained.provider.shell.execute_command import _BLOCKED
 from ai_contained.provider.shell.execute_command import register as register_execute_command
 
-ExecuteCommand = Callable[..., Coroutine[Any, Any, WrapCallToolResult]]
+
+class ExecuteCommand:
+    def __init__(self, client: Client[FastMCPTransport], elicitor: Elicitor) -> None:
+        self.client = client
+        self._elicitor = elicitor
+
+    async def __call__(
+        self,
+        command: str,
+        arguments: list[str] | None = None,
+        *,
+        working_dir: str | None = None,
+        environment: dict[str, str] | None = None,
+        summary: str | None = None,
+        raise_on_error: bool = True,
+    ) -> WrapCallToolResult:
+        if arguments is None:
+            arguments = []
+        self._elicitor.accept(
+            expect_message=assert_command_prompt(command, arguments, working_dir=working_dir, summary=summary)
+        )
+        return WrapCallToolResult(
+            **vars(await self.client.call_tool(
+                "execute_command",
+                {"command": command, "arguments": arguments, "working_dir": working_dir, "environment": environment, "summary": summary},
+                raise_on_error=raise_on_error,
+            ))
+        )
 
 
 def assert_command_prompt(
@@ -51,38 +77,12 @@ def describe_execute_command() -> None:
             yield c
 
     @pytest.fixture
-    async def client_any_command(elicitor: Elicitor) -> AsyncGenerator[Client[FastMCPTransport], None]:
-        """Test client — no blocklist, allows any command including ls/cat."""
+    async def execute_command(elicitor: Elicitor) -> AsyncGenerator[ExecuteCommand, None]:
+        """Permissive client — no blocklist. Exposes .client for raw call_tool access."""
         server = FastMCP("test")
         register_execute_command(server, blocklist=frozenset())
         async with Client(transport=server, elicitation_handler=elicitor) as c:
-            yield c
-
-    @pytest.fixture
-    def execute_command(client_any_command: Client[FastMCPTransport], elicitor: Elicitor) -> ExecuteCommand:
-        async def _run(
-            command: str,
-            arguments: list[str] | None = None,
-            *,
-            working_dir: str | None = None,
-            environment: dict[str, str] | None = None,
-            summary: str | None = None,
-            raise_on_error: bool = True,
-        ) -> WrapCallToolResult:
-            if arguments is None:
-                arguments = []
-            elicitor.accept(
-                expect_message=assert_command_prompt(command, arguments, working_dir=working_dir, summary=summary)
-            )
-            return WrapCallToolResult(
-                **vars(await client_any_command.call_tool(
-                    "execute_command",
-                    {"command": command, "arguments": arguments, "working_dir": working_dir, "environment": environment, "summary": summary},
-                    raise_on_error=raise_on_error,
-                ))
-            )
-
-        return _run
+            yield ExecuteCommand(c, elicitor)
 
     def describe_basic_execution() -> None:
         async def it_runs_a_command_and_returns_stdout(execute_command: ExecuteCommand, tmp_path: Path) -> None:
@@ -128,16 +128,15 @@ def describe_execute_command() -> None:
         async def it_rejects_before_elicitation(
             client: Client[FastMCPTransport], elicitor: Elicitor
         ) -> None:
-            # elicitor queue stays empty — rejection happens before elicitation
             result = await client.call_tool(
                 "execute_command", {"command": "bash", "arguments": []}, raise_on_error=False
             )
             assert_that(result.is_error).is_true()
 
     def describe_path_resolution() -> None:
-        async def it_rejects_unknown_command(client_any_command: Client[FastMCPTransport]) -> None:
+        async def it_rejects_unknown_command(execute_command: ExecuteCommand) -> None:
             expected = "nonexistent_command_xyz_abc"
-            result = await client_any_command.call_tool(
+            result = await execute_command.client.call_tool(
                 "execute_command", {"command": expected, "arguments": []}, raise_on_error=False
             )
             assert_that(result.is_error).is_true()
@@ -159,7 +158,6 @@ def describe_execute_command() -> None:
             assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
 
         async def it_shows_relative_path_in_elicitation(execute_command: ExecuteCommand, sandbox: Path) -> None:
-            # assert_command_prompt uses os.path.relpath — elicitor validates the message
             result = await execute_command("pwd", working_dir="/tmp")
             assert_that(result.json()["exit_status"]).is_equal_to("0")
 
@@ -208,11 +206,11 @@ def describe_execute_command() -> None:
 
     def describe_decline() -> None:
         async def it_returns_cancelled_when_user_declines(
-            client_any_command: Client[FastMCPTransport], elicitor: Elicitor
+            execute_command: ExecuteCommand, elicitor: Elicitor
         ) -> None:
             expected = "Tool use was cancelled by the user"
             elicitor.decline(expect_message=assert_command_prompt("ls", ["/tmp"]))
-            result = await client_any_command.call_tool(
+            result = await execute_command.client.call_tool(
                 "execute_command", {"command": "ls", "arguments": ["/tmp"]}, raise_on_error=False
             )
             assert_that(result.is_error).is_true()
