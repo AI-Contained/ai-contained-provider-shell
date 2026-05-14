@@ -191,14 +191,23 @@ def describe_execute_command() -> None:
             )
             assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
 
-        async def it_resolves_command_via_environment_path(
-            execute_command: ExecuteCommand, tmp_path: Path
+        async def it_expands_variables_in_environment_values(
+            execute_command: ExecuteCommand, monkeypatch: pytest.MonkeyPatch
         ) -> None:
-            expected = "from_custom_path"
-            fake_bin = tmp_path / "my_script"
-            fake_bin.write_text(f"#!/bin/sh\necho {expected}\n")
-            fake_bin.chmod(0o755)
-            result = await execute_command("my_script", [], environment={"PATH": str(tmp_path)})
+            base = "whatever"
+            expected = f"-{base}-"
+            monkeypatch.setenv("EXECUTE_CMD_BASE_VAR", base)
+            result = await execute_command(
+                "printenv", ["EXECUTE_CMD_DERIVED_VAR"],
+                environment={"EXECUTE_CMD_DERIVED_VAR": "-$EXECUTE_CMD_BASE_VAR-"},
+            )
+            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
+
+        async def it_resolves_command_via_environment_path(
+            execute_command: ExecuteCommand,
+        ) -> None:
+            expected = Path(__file__).parent / "bin" / "test_helper"
+            result = await execute_command("which", ["test_helper"], environment={"PATH": f"{expected.parent}:$PATH"})
             assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
 
     def describe_summary() -> None:
