@@ -74,8 +74,9 @@ def register(mcp: FastMCP) -> None:
             or shutil.which("downgrade_exec")
             or "/usr/local/bin/downgrade_exec"
         )
+        downgrade_args = os.environ.get("DOWNGRADE_ARGS", "--check=writable").split()
         proc = subprocess.run(
-            [downgrade_exec, "--check=writable", "--", "/bin/sh", "-c", command],
+            [downgrade_exec, *downgrade_args, "--", "/bin/sh", "-c", command],
             capture_output=True,
             text=True,
             cwd=working_dir or None,
