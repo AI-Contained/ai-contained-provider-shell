@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import subprocess
 
 from fastmcp import Context, FastMCP
@@ -68,9 +69,13 @@ def register(mcp: FastMCP) -> None:
         if result.action != "accept":
             raise ToolError("Tool use was cancelled by the user")
 
+        downgrade_exec = (
+            os.environ.get("DOWNGRADE_EXEC")
+            or shutil.which("downgrade_exec")
+            or "/usr/local/bin/downgrade_exec"
+        )
         proc = subprocess.run(
-            command,
-            shell=True,
+            [downgrade_exec, "--check=writable", "--", "/bin/sh", "-c", command],
             capture_output=True,
             text=True,
             cwd=working_dir or None,

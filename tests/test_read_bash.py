@@ -39,7 +39,9 @@ def describe_read_bash() -> None:
     @pytest.fixture
     async def client(
         elicitor: Elicitor,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> AsyncGenerator[Client[FastMCPTransport], None]:
+        monkeypatch.setenv("DOWNGRADE_EXEC", str(Path(__file__).parent / "bin" / "downgrade_exec_stub.sh"))
         server = FastMCP("test")
         register(server)
         async with Client(transport=server, elicitation_handler=elicitor) as c:
