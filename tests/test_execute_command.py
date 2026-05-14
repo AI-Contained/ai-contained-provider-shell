@@ -111,6 +111,14 @@ def describe_execute_command() -> None:
             assert_that(result.json()["stderr"]).contains(expected_missing)
 
     def describe_arguments() -> None:
+        async def it_does_not_expand_env_vars_in_arguments(
+            execute_command: ExecuteCommand, monkeypatch: pytest.MonkeyPatch
+        ) -> None:
+            expected = "$EXECUTE_CMD_TEST_VAR"
+            monkeypatch.setenv("EXECUTE_CMD_TEST_VAR", "should_not_appear")
+            result = await execute_command("echo", [expected])
+            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
+
         async def it_does_not_expand_shell_globs(execute_command: ExecuteCommand, tmp_path: Path) -> None:
             expected = str(tmp_path / "*.txt")
             result = await execute_command("ls", [expected])
@@ -208,6 +216,14 @@ def describe_execute_command() -> None:
         ) -> None:
             expected = Path(__file__).parent / "bin" / "test_helper"
             result = await execute_command("which", ["test_helper"], environment={"PATH": f"{expected.parent}:$PATH"})
+            assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
+
+        async def it_executes_command_found_via_environment_path(
+            execute_command: ExecuteCommand,
+        ) -> None:
+            expected = "test_helper"
+            bin_dir = Path(__file__).parent / "bin"
+            result = await execute_command("test_helper", [], environment={"PATH": str(bin_dir)})
             assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": f"{expected}\n", "stderr": ""})
 
     def describe_summary() -> None:
