@@ -94,17 +94,21 @@ def describe_execute_command() -> None:
             assert_that(result.json()).is_equal_to({"exit_status": "0", "stdout": expected, "stderr": ""})
 
         async def it_captures_stderr_and_nonzero_exit(execute_command: ExecuteCommand) -> None:
-            result = await execute_command("ls", ["/nonexistent_xyz_abc_123"])
+            expected = "/nonexistent_xyz_abc_123"
+            result = await execute_command("cat", [expected])
             assert_that(result.is_error).is_false()
             assert_that(result.json()["exit_status"]).is_not_equal_to("0")
-            assert_that(result.json()["stderr"]).is_not_empty()
+            assert_that(result.json()["stderr"]).contains(expected)
 
         async def it_captures_both_stdout_and_stderr(execute_command: ExecuteCommand, tmp_path: Path) -> None:
-            (tmp_path / "hello.txt").write_text("world\n")
-            result = await execute_command("ls", [str(tmp_path), "/nonexistent_xyz_abc_123"])
+            expected_stdout = "world\n"
+            expected_missing = "/nonexistent_xyz_abc_123"
+            hello_file = tmp_path / "hello.txt"
+            hello_file.write_text(expected_stdout)
+            result = await execute_command("cat", [str(hello_file), expected_missing])
             assert_that(result.is_error).is_false()
-            assert_that(result.json()["stdout"]).is_not_empty()
-            assert_that(result.json()["stderr"]).is_not_empty()
+            assert_that(result.json()["stdout"]).is_equal_to(expected_stdout)
+            assert_that(result.json()["stderr"]).contains(expected_missing)
 
     def describe_arguments() -> None:
         async def it_does_not_expand_shell_globs(execute_command: ExecuteCommand, tmp_path: Path) -> None:
@@ -123,7 +127,7 @@ def describe_execute_command() -> None:
             )
             assert_that(result.is_error).is_true()
             assert isinstance(result.content[0], TextContent)
-            assert_that(result.content[0].text).contains(expected)
+            assert_that(result.content[0].text).is_equal_to(f"execute_command: {expected!r} is not permitted")
 
         async def it_rejects_before_elicitation(
             client: Client[FastMCPTransport], elicitor: Elicitor
@@ -141,7 +145,7 @@ def describe_execute_command() -> None:
             )
             assert_that(result.is_error).is_true()
             assert isinstance(result.content[0], TextContent)
-            assert_that(result.content[0].text).contains(expected)
+            assert_that(result.content[0].text).is_equal_to(f"execute_command: {expected!r} not found in PATH")
 
     def describe_working_dir() -> None:
         @pytest.fixture
